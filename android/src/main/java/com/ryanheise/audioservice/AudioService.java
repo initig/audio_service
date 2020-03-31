@@ -68,7 +68,6 @@ public class AudioService extends MediaBrowserServiceCompat implements AudioMana
 	static boolean androidNotificationClickStartsActivity;
 	static boolean androidNotificationOngoing;
 	static boolean shouldPreloadArtwork;
-	static boolean enableQueue;
 	static boolean androidStopForegroundOnPause;
 	static boolean androidStopOnRemoveTask;
 	private static List<MediaSessionCompat.QueueItem> queue = new ArrayList<MediaSessionCompat.QueueItem>();
@@ -77,7 +76,7 @@ public class AudioService extends MediaBrowserServiceCompat implements AudioMana
 	private static Set<String> artUriBlacklist = new HashSet<>();
 	private static Map<String,Bitmap> artBitmapCache = new HashMap<>(); // TODO: old bitmaps should expire FIFO
 
-	public static void init(Activity activity, boolean resumeOnClick, String androidNotificationChannelName, String androidNotificationChannelDescription, Integer notificationColor, String androidNotificationIcon, boolean androidNotificationClickStartsActivity, boolean androidNotificationOngoing, boolean shouldPreloadArtwork, boolean enableQueue, boolean androidStopForegroundOnPause, boolean androidStopOnRemoveTask, ServiceListener listener) {
+	public static void init(Activity activity, boolean resumeOnClick, String androidNotificationChannelName, String androidNotificationChannelDescription, Integer notificationColor, String androidNotificationIcon, boolean androidNotificationClickStartsActivity, boolean androidNotificationOngoing, boolean shouldPreloadArtwork, boolean androidStopForegroundOnPause, boolean androidStopOnRemoveTask, ServiceListener listener) {
 		if (running)
 			throw new IllegalStateException("AudioService already running");
 		running = true;
@@ -94,7 +93,6 @@ public class AudioService extends MediaBrowserServiceCompat implements AudioMana
 		AudioService.androidNotificationClickStartsActivity = androidNotificationClickStartsActivity;
 		AudioService.androidNotificationOngoing = androidNotificationOngoing;
 		AudioService.shouldPreloadArtwork = shouldPreloadArtwork;
-		AudioService.enableQueue = enableQueue;
 		AudioService.androidStopForegroundOnPause = androidStopForegroundOnPause;
 		AudioService.androidStopOnRemoveTask = androidStopOnRemoveTask;
 	}
@@ -359,11 +357,7 @@ public class AudioService extends MediaBrowserServiceCompat implements AudioMana
 
 		mediaSession = new MediaSessionCompat(this, "media-session");
 		mediaSession.setMediaButtonReceiver(null); // TODO: Make this configurable
-		if (enableQueue) {
-			mediaSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
-		} else {
-			mediaSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS | MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);
-		}
+		mediaSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
 		PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
 				.setActions(PlaybackStateCompat.ACTION_PLAY);
 		mediaSession.setPlaybackState(stateBuilder.build());
