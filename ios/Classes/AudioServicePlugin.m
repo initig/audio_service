@@ -176,6 +176,7 @@ static MPMediaItemArtwork* artwork = nil;
     [commandCenter.skipBackwardCommand setEnabled:NO];
     [commandCenter.skipForwardCommand removeTarget:nil];
     [commandCenter.skipBackwardCommand removeTarget:nil];
+    [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
     result(@YES);
   } else if ([@"isRunning" isEqualToString:call.method]) {
     if (_running) {
@@ -268,17 +269,19 @@ static MPMediaItemArtwork* artwork = nil;
   } else if ([@"setMediaItem" isEqualToString:call.method]) {
     mediaItem = call.arguments;
     NSString* artUri = mediaItem[@"artUri"];
-    if (artUri != [NSNull null]) {
-      NSURL* artUrl = [[NSURL alloc] initWithString:artUri];
-      NSData* artData = [NSData dataWithContentsOfURL:artUrl];
-      UIImage* artImage = [UIImage imageWithData:artData];
-      artwork = [[MPMediaItemArtwork alloc]
-        initWithBoundsSize:artImage.size
-            requestHandler:^UIImage* _Nonnull(CGSize size){
-              return artImage;
-            }];
-    } else {
-      artwork = nil;
+    artwork = nil;
+    if (![artUri isEqual: [NSNull null]]) {
+      NSString* artCacheFilePath = [NSNull null];
+      NSDictionary* extras = mediaItem[@"extras"];
+      if (![extras isEqual: [NSNull null]]) {
+        artCacheFilePath = extras[@"artCacheFile"];
+      }
+      if (![artCacheFilePath isEqual: [NSNull null]]) {
+        UIImage* artImage = [UIImage imageWithContentsOfFile:artCacheFilePath];
+        if (artImage != nil) {
+          artwork = [[MPMediaItemArtwork alloc] initWithImage: artImage];
+        }
+      }
     }
     [self updateNowPlayingInfo];
     [channel invokeMethod:@"onMediaChanged" arguments:@[call.arguments]];
@@ -320,7 +323,7 @@ static MPMediaItemArtwork* artwork = nil;
     nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = [NSNumber numberWithInt:([position intValue] / 1000)];
   }
   int stateCode = state ? [state intValue] : 0;
-  nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = [NSNumber numberWithDouble: stateCode >= 3 ? 1.0 : 0.0];
+  nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = [NSNumber numberWithDouble: stateCode == 3 ? 1.0 : 0.0];
   [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nowPlayingInfo;
 }
 
