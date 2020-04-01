@@ -24,7 +24,6 @@ static NSNumber *state = nil;
 static NSNumber *position = nil;
 static NSNumber *updateTime = nil;
 static NSNumber *speed = nil;
-static NSNumber *duration = nil;
 static MPMediaItemArtwork* artwork = nil;
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
@@ -67,7 +66,6 @@ static MPMediaItemArtwork* artwork = nil;
       position = @(0);
       updateTime = [NSNumber numberWithLongLong: msSinceEpoch];
       speed = [NSNumber numberWithDouble: 1.0];
-      duration = [NSNumber numberWithLongLong: -1];
     }
     [channel invokeMethod:@"onPlaybackStateChanged" arguments:@[
       // state
@@ -79,9 +77,7 @@ static MPMediaItemArtwork* artwork = nil;
       // playback speed
       speed,
       // update time since epoch
-      updateTime,
-      // duration
-      duration
+      updateTime
     ]];
     [channel invokeMethod:@"onMediaChanged" arguments:@[mediaItem ? mediaItem : [NSNull null]]];
     [channel invokeMethod:@"onQueueChanged" arguments:@[queue ? queue : [NSNull null]]];
@@ -252,11 +248,6 @@ static MPMediaItemArtwork* artwork = nil;
     position = call.arguments[3];
     updateTime = [NSNumber numberWithLongLong: msSinceEpoch];
     speed = call.arguments[4];
-    if (call.arguments[7] != [NSNull null]) {
-        duration = call.arguments[7];
-    } else {
-        duration = [NSNumber numberWithLongLong: -1];
-    }
     [channel invokeMethod:@"onPlaybackStateChanged" arguments:@[
       // state
       state,
@@ -267,9 +258,7 @@ static MPMediaItemArtwork* artwork = nil;
       // playback speed
       speed,
       // update time since epoch
-      updateTime,
-      // duration
-      duration
+      updateTime
     ]];
     [self updateNowPlayingInfo];
     result(@(YES));
