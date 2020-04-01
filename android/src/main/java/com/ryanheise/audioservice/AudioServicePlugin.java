@@ -162,12 +162,7 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
 				// On the flutter side, we represent the update time relative to the epoch.
 				long updateTimeSinceBoot = state.getLastPositionUpdateTime();
 				long updateTimeSinceEpoch = bootTime + updateTimeSinceBoot;
-				Bundle extras = state.getExtras();
-				long duration = -1;
-				if (extras != null) {
-					duration = extras.getLong(AudioService.PLAYBACK_STATE_EXTRA_DURATION, -1);
-				}
-				invokeMethod("onPlaybackStateChanged", state.getState(), state.getActions(), state.getPosition(), state.getPlaybackSpeed(), updateTimeSinceEpoch, duration);
+				invokeMethod("onPlaybackStateChanged", state.getState(), state.getActions(), state.getPosition(), state.getPlaybackSpeed(), updateTimeSinceEpoch);
 			}
 
 			@Override
@@ -646,8 +641,7 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
 				long position = getLong(args.get(3));
 				float speed = (float)((double)((Double)args.get(4)));
 				long updateTimeSinceEpoch = args.get(5) == null ? System.currentTimeMillis() : getLong(args.get(5));
-				List<Object> compactActionIndexList = (List<Object>) args.get(6);
-				long duration = args.get(7) == null ? -1 : getLong(args.get(7));
+				List<Object> compactActionIndexList = (List<Object>)args.get(6);
 
 				// On the flutter side, we represent the update time relative to the epoch.
 				// On the native side, we must represent the update time relative to the boot time.
@@ -671,7 +665,7 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
 					for (int i = 0; i < compactActionIndices.length; i++)
 						compactActionIndices[i] = (Integer)compactActionIndexList.get(i);
 				}
-				AudioService.instance.setState(actions, actionBits, compactActionIndices, playbackState, position, speed, updateTimeSinceBoot, duration);
+				AudioService.instance.setState(actions, actionBits, compactActionIndices, playbackState, position, speed, updateTimeSinceBoot);
 				result.success(true);
 				break;
 			case "stopped":

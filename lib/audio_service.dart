@@ -69,16 +69,12 @@ class PlaybackState {
   /// The time at which the playback position was last updated
   final int updateTime;
 
-  /// The current playback duration. -1 means invalid.
-  final int duration;
-
   const PlaybackState({
     @required this.basicState,
     @required this.actions,
     this.position,
     this.speed,
     this.updateTime,
-    this.duration,
   });
 
   /// The current playback position in milliseconds
@@ -470,7 +466,6 @@ class AudioService {
             position: args[2],
             speed: args[3],
             updateTime: args[4],
-            duration: args[5],
           );
           _playbackStateSubject.add(_playbackState);
           break;
@@ -889,7 +884,6 @@ class AudioServiceBackground {
     double speed = 1.0,
     int updateTime,
     List<int> androidCompactActions,
-    int duration = -1,
   }) async {
     _state = PlaybackState(
       basicState: basicState,
@@ -897,7 +891,6 @@ class AudioServiceBackground {
       position: position,
       speed: speed,
       updateTime: updateTime,
-      duration: duration,
     );
     List<Map> rawControls = controls
         .map((control) => {
@@ -915,8 +908,7 @@ class AudioServiceBackground {
       position,
       speed,
       updateTime,
-      androidCompactActions,
-      duration,
+      androidCompactActions
     ]);
   }
 
