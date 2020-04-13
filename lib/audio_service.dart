@@ -252,6 +252,10 @@ class MediaItem {
   /// The values must be integers or strings.
   final Map<String, dynamic> extras;
 
+  /// Creates a [MediaItem].
+  ///
+  /// [id], [album] and [title] must not be null, and [id] must be unique for
+  /// each instance.
   const MediaItem({
     @required this.id,
     @required this.album,
@@ -388,6 +392,7 @@ const String _CUSTOM_PREFIX = 'custom_';
 /// Your UI must disconnect from the audio service when it is no longer visible
 /// although the audio service will continue to run in the background. If your
 /// UI once again becomes visible, you should reconnect to the audio service.
+/// Use [AudioServiceWidget] to manage this connection automatically.
 class AudioService {
   /// The root media ID for browsing media provided by the background
   /// task.
@@ -445,6 +450,8 @@ class AudioService {
   /// This method should be called when your UI becomes visible, and
   /// [disconnect] should be called when your UI is no longer visible. All
   /// other methods in this class will work only while connected.
+  ///
+  /// Use [AudioServiceWidget] to handle this automatically.
   static Future<void> connect() async {
     _channel.setMethodCallHandler((MethodCall call) async {
       switch (call.method) {
@@ -504,6 +511,8 @@ class AudioService {
   /// Disconnects your UI from the service.
   ///
   /// This method should be called when the UI is no longer visible.
+  ///
+  /// Use [AudioServiceWidget] to handle this automatically.
   static Future<void> disconnect() async {
     _channel.setMethodCallHandler(null);
     await _channel.invokeMethod("disconnect");
@@ -913,7 +922,11 @@ class AudioServiceBackground {
   }
 
   /// Sets the current queue and notifies all clients.
-  static Future<void> setQueue(List<MediaItem> queue) async {
+  static Future<void> setQueue(List<MediaItem> queue,
+      {bool preloadArtwork = false}) async {
+    if (preloadArtwork) {
+      _loadAllArtwork(queue);
+    }
     await _backgroundChannel.invokeMethod(
         'setQueue', queue.map(_mediaItem2raw).toList());
   }
@@ -924,21 +937,21 @@ class AudioServiceBackground {
     if (mediaItem.artUri != null) {
       // We potentially need to fetch the art.
       final fileInfo = await _cacheManager.getFileFromMemory(mediaItem.artUri);
-      File file = fileInfo?.file;
-      if (file == null) {
+      String filePath = fileInfo?.file?.path;
+      if (filePath == null) {
         // We haven't fetched the art yet, so show the metadata now, and again
         // after we load the art.
         await _backgroundChannel.invokeMethod(
             'setMediaItem', _mediaItem2raw(mediaItem));
         // Load the art
-        file = await _cacheManager.getSingleFile(mediaItem.artUri);
+        filePath = await _loadArtwork(mediaItem);
         // If we failed to download the art, abort.
-        if (file == null) return;
+        if (filePath == null) return;
         // If we've already set a new media item, cancel this request.
         if (mediaItem != _mediaItem) return;
       }
       final extras = Map.of(mediaItem.extras ?? <String, dynamic>{});
-      extras['artCacheFile'] = file.path;
+      extras['artCacheFile'] = filePath;
       final platformMediaItem = mediaItem.copyWith(extras: extras);
       // Show the media item after the art is loaded.
       await _backgroundChannel.invokeMethod(
@@ -947,6 +960,28 @@ class AudioServiceBackground {
       await _backgroundChannel.invokeMethod(
           'setMediaItem', _mediaItem2raw(mediaItem));
     }
+  }
+
+  static Future<void> _loadAllArtwork(List<MediaItem> queue) async {
+    for (var mediaItem in queue) {
+      await _loadArtwork(mediaItem);
+    }
+  }
+
+  static Future<String> _loadArtwork(MediaItem mediaItem) async {
+    try {
+      final artUri = mediaItem.artUri;
+      if (artUri != null) {
+        const prefix = 'file://';
+        if (artUri.toLowerCase().startsWith(prefix)) {
+          return artUri.substring(prefix.length);
+        } else {
+          final file = await _cacheManager.getSingleFile(mediaItem.artUri);
+          return file.path;
+        }
+      }
+    } catch (e) {}
+    return null;
   }
 
   /// Notify clients that the child media items of [parentMediaId] have
@@ -1095,4 +1130,59 @@ _iosIsolateEntrypoint(int rawHandle) async {
   ui.CallbackHandle handle = ui.CallbackHandle.fromRawHandle(rawHandle);
   Function backgroundTask = ui.PluginUtilities.getCallbackFromHandle(handle);
   backgroundTask();
+}
+
+/// A widget that maintains a connection to [AudioService].
+///
+/// Insert this widget at the top of your widget tree to maintain the
+/// connection across all routes.
+class AudioServiceWidget extends StatefulWidget {
+  final Widget child;
+
+  AudioServiceWidget({@required this.child});
+
+  @override
+  _AudioServiceWidgetState createState() => _AudioServiceWidgetState();
+}
+
+class _AudioServiceWidgetState extends State<AudioServiceWidget>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AudioService.connect();
+  }
+
+  @override
+  void dispose() {
+    AudioService.disconnect();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        AudioService.connect();
+        break;
+      case AppLifecycleState.paused:
+        AudioService.disconnect();
+        break;
+      default:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        AudioService.disconnect();
+        return true;
+      },
+      child: widget.child,
+    );
+  }
 }
